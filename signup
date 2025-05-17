@@ -1,0 +1,308 @@
+import React, { useState, useEffect } from 'react';
+import FullCalendar from '@fullcalendar/react';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import _ from 'lodash';
+import { Calendar, X, Save, FileText } from 'lucide-react';
+
+// Main App Component
+const App = () => {
+  const [events, setEvents] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [showSignupForm, setShowSignupForm] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [message, setMessage] = useState('');
+  const [showMessage, setShowMessage] = useState(false);
+
+  // Load events from localStorage or fallback to sample data
+  useEffect(() => {
+    const storedEvents = localStorage.getItem('events');
+    if (storedEvents) {
+      setEvents(JSON.parse(storedEvents));
+    } else {
+      // Sample data if no stored events exist
+      const currentDate = new Date();
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
+      const day = currentDate.getDate();
+      
+      const sampleEvents = [
+        {
+          id: 1,
+          title: 'Valorant (5/5 spots left)',
+          activity: 'Yoga',
+          start: new Date(year, month, day, 10, 0).toISOString(),
+          end: new Date(year, month, day, 11, 0).toISOString(),
+          capacity: 5,
+          signups: [],
+          color: '#4CAF50', // Green
+        },
+        {
+          id: 2,
+          title: 'Dance (3/3 spots left)',
+          activity: 'Dance',
+          start: new Date(year, month, day, 14, 0).toISOString(),
+          end: new Date(year, month, day, 15, 30).toISOString(),
+          capacity: 3,
+          signups: [],
+          color: '#4CAF50', // Green
+        },
+        {
+          id: 3,
+          title: 'Painting (4/4 spots left)',
+          activity: 'Painting',
+          start: new Date(year, month, day + 1, 14, 0).toISOString(),
+          end: new Date(year, month, day + 1, 16, 0).toISOString(),
+          capacity: 4,
+          signups: [],
+          color: '#4CAF50', // Green
+        },
+        {
+          id: 4,
+          title: 'Yoga (5/5 spots left)',
+          activity: 'Yoga',
+          start: new Date(year, month, day + 2, 9, 0).toISOString(),
+          end: new Date(year, month, day + 2, 10, 0).toISOString(),
+          capacity: 5,
+          signups: [],
+          color: '#4CAF50', // Green
+        },
+        {
+          id: 5,
+          title: 'Meditation (8/8 spots left)',
+          activity: 'Meditation',
+          start: new Date(year, month, day + 3, 18, 0).toISOString(),
+          end: new Date(year, month, day + 3, 19, 0).toISOString(),
+          capacity: 8,
+          signups: [],
+          color: '#4CAF50', // Green
+        },
+      ];
+      setEvents(sampleEvents);
+      localStorage.setItem('events', JSON.stringify(sampleEvents));
+    }
+  }, []);
+
+  // Save events to localStorage whenever they change
+  useEffect(() => {
+    if (events.length > 0) {
+      localStorage.setItem('events', JSON.stringify(events));
+    }
+  }, [events]);
+
+  // Handle event click to open signup form
+  const handleEventClick = (clickInfo) => {
+    const eventId = parseInt(clickInfo.event.id);
+    const event = events.find(e => e.id === eventId);
+    
+    // Check if event is full
+    if (event.signups.length >= event.capacity) {
+      setMessage("This event is already full.");
+      setShowMessage(true);
+      setTimeout(() => setShowMessage(false), 3000);
+      return;
+    }
+    
+    setSelectedEvent(event);
+    setShowSignupForm(true);
+  };
+
+  // Handle form submission for signup
+  const handleSignup = () => {
+    if (!userName.trim()) {
+      setMessage("Please enter your name.");
+      setShowMessage(true);
+      setTimeout(() => setShowMessage(false), 3000);
+      return;
+    }
+
+    // Update the events array with the new signup
+    const updatedEvents = events.map(event => {
+      if (event.id === selectedEvent.id) {
+        const updatedSignups = [...event.signups, userName];
+        const spotsLeft = event.capacity - updatedSignups.length;
+        const isFull = spotsLeft <= 0;
+        
+        return {
+          ...event,
+          signups: updatedSignups,
+          title: `${event.activity} (${spotsLeft}/${event.capacity} spots left)`,
+          color: isFull ? '#9E9E9E' : '#4CAF50', // Gray if full, Green if available
+        };
+      }
+      return event;
+    });
+
+    setEvents(updatedEvents);
+    setUserName('');
+    setShowSignupForm(false);
+    
+    setMessage(`Thank you! You've successfully signed up for ${selectedEvent.activity}.`);
+    setShowMessage(true);
+    setTimeout(() => setShowMessage(false), 3000);
+  };
+
+  // Export data to JSON file
+  const exportToJSON = () => {
+    const dataStr = JSON.stringify(events, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'events.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Export data to CSV
+  const exportToCSV = () => {
+    // Format data for CSV
+    const csvRows = [];
+    
+    // Add header row
+    const headers = ['Activity', 'Date', 'Start Time', 'End Time', 'Capacity', 'Signups', 'Spots Left'];
+    csvRows.push(headers.join(','));
+    
+    // Add data rows
+    events.forEach(event => {
+      const startDate = new Date(event.start);
+      const endDate = new Date(event.end);
+      
+      const row = [
+        event.activity,
+        startDate.toLocaleDateString(),
+        startDate.toLocaleTimeString(),
+        endDate.toLocaleTimeString(),
+        event.capacity,
+        `"${event.signups.join(', ')}"`,
+        event.capacity - event.signups.length
+      ];
+      
+      csvRows.push(row.join(','));
+    });
+    
+    // Create and download CSV file
+    const csvString = csvRows.join('\n');
+    const csvBlob = new Blob([csvString], { type: 'text/csv' });
+    const url = URL.createObjectURL(csvBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'kiosk_signups.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-6xl mx-auto">
+        <header className="mb-6">
+          <div className="flex items-center justify-center">
+            <Calendar className="text-blue-800 mr-2" size={32} />
+            <h1 className="text-3xl font-bold text-center text-blue-800">Activity Signup Kiosk</h1>
+          </div>
+        </header>
+        
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <FullCalendar
+            plugins={[timeGridPlugin, interactionPlugin]}
+            initialView="timeGridWeek"
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'timeGridWeek,timeGridDay'
+            }}
+            events={events}
+            eventClick={handleEventClick}
+            height="auto"
+            aspectRatio={1.5}
+            allDaySlot={false}
+            slotMinTime="08:00:00"
+            slotMaxTime="21:00:00"
+          />
+        </div>
+        
+        <div className="flex justify-center space-x-4 mb-6">
+          <button 
+            onClick={exportToJSON} 
+            className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg shadow flex items-center"
+          >
+            <Save className="mr-2" size={20} />
+            Export to JSON
+          </button>
+          <button 
+            onClick={exportToCSV} 
+            className="bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-lg shadow flex items-center"
+          >
+            <FileText className="mr-2" size={20} />
+            Export to CSV
+          </button>
+        </div>
+      </div>
+
+      {/* Signup Form Modal */}
+      {showSignupForm && selectedEvent && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">{selectedEvent.activity} Signup</h2>
+              <button 
+                onClick={() => setShowSignupForm(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            
+            <p className="mb-4">
+              <span className="font-semibold">Time:</span> {new Date(selectedEvent.start).toLocaleString()} - {new Date(selectedEvent.end).toLocaleTimeString()}
+            </p>
+            <p className="mb-4">
+              <span className="font-semibold">Available Spots:</span> {selectedEvent.capacity - selectedEvent.signups.length} of {selectedEvent.capacity}
+            </p>
+            
+            <div className="mb-4">
+              <label htmlFor="name" className="block text-gray-700 mb-2">Your Name</label>
+              <input
+                type="text"
+                id="name"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                className="w-full p-3 border border-gray-300 rounded-lg text-lg"
+                placeholder="Enter your name"
+                autoFocus
+              />
+            </div>
+            
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowSignupForm(false)}
+                className="bg-gray-300 hover:bg-gray-400 py-2 px-4 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSignup}
+                className="bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-lg"
+              >
+                Sign Up
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success/Error Message Toast */}
+      {showMessage && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white py-2 px-4 rounded-lg shadow-lg">
+          {message}
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default App;
