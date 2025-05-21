@@ -116,13 +116,24 @@ const App = () => {
       return;
     }
 
-    // Update the events array with the new signup
+    // Prevent duplicate signups for the same event
+    const alreadySignedUp = selectedEvent.signups.some(
+      signup => (typeof signup === 'string' ? signup === userName.trim() : signup.name === userName.trim())
+    );
+    if (alreadySignedUp) {
+      setMessage("You have already signed up for this activity.");
+      setShowMessage(true);
+      setTimeout(() => setShowMessage(false), 3000);
+      return;
+    }
+
+    // Update the events array with the new signup (with timestamp)
     const updatedEvents = events.map(event => {
       if (event.id === selectedEvent.id) {
-        const updatedSignups = [...event.signups, userName];
+        const newSignup = { name: userName.trim(), timestamp: new Date().toISOString() };
+        const updatedSignups = [...event.signups, newSignup];
         const spotsLeft = event.capacity - updatedSignups.length;
         const isFull = spotsLeft <= 0;
-        
         return {
           ...event,
           signups: updatedSignups,
@@ -136,7 +147,6 @@ const App = () => {
     setEvents(updatedEvents);
     setUserName('');
     setShowSignupForm(false);
-    
     setMessage(`Thank you! You've successfully signed up for ${selectedEvent.activity}.`);
     setShowMessage(true);
     setTimeout(() => setShowMessage(false), 3000);
@@ -160,34 +170,30 @@ const App = () => {
   const exportToCSV = () => {
     // Format data for CSV
     const csvRows = [];
-    
     // Add header row
     const headers = ['Activity', 'Date', 'Start Time', 'End Time', 'Capacity', 'Signups', 'Spots Left'];
     csvRows.push(headers.join(','));
-    
     // Add data rows
     events.forEach(event => {
       const startDate = new Date(event.start);
       const endDate = new Date(event.end);
-      
+      // Format signups as comma-separated names
+      const signupNames = event.signups.map(s => (typeof s === 'string' ? s : s.name)).join(', ');
       const row = [
         event.activity,
         startDate.toLocaleDateString(),
         startDate.toLocaleTimeString(),
         endDate.toLocaleTimeString(),
         event.capacity,
-        `"${event.signups.join(', ')}"`,
+        `"${signupNames}"`,
         event.capacity - event.signups.length
       ];
-      
       csvRows.push(row.join(','));
     });
-    
     // Create and download CSV file
     const csvString = csvRows.join('\n');
     const csvBlob = new Blob([csvString], { type: 'text/csv' });
     const url = URL.createObjectURL(csvBlob);
-    
     const link = document.createElement('a');
     link.href = url;
     link.download = 'kiosk_signups.csv';

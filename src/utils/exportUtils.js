@@ -33,7 +33,7 @@ export const exportToCSV = (events) => {
       `"${startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}"`,
       `"${endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}"`,
       event.capacity,
-      `"${event.signups.join(', ')}"`,
+      `"${event.signups.map(s => s.name).join(', ')}"`,
       event.capacity - event.signups.length
     ];
     

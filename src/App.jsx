@@ -1,86 +1,125 @@
 import React, { useState, useEffect } from 'react';
-import { loadEvents, saveEvents, addSignup } from './utils/dataUtils';
 import CalendarView from './components/CalendarView';
 import SignupForm from './components/SignupForm';
-import ExportButtons from './components/ExportButtons';
 import MessageToast from './components/MessageToast';
+import AdminControls from './components/AdminControls';
+import { loadEvents, saveEvents, addSignup } from './utils/dataUtils';
+import { exportToJSON, exportToCSV } from './utils/exportUtils';
 
 function App() {
-  const [events, setEvents] = useState(null);
+  const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
+  const [userName, setUserName] = useState('');
   const [toast, setToast] = useState(null);
 
-  // Load events data on startup (from localStorage or sample file)
   useEffect(() => {
-    const initData = async () => {
-      try {
-        const initialEvents = await loadEvents();
-        setEvents(initialEvents);
-      } catch (err) {
-        console.error('Error loading events:', err);
-        setToast({ message: 'Failed to load events data.', type: 'error' });
-        setEvents([]); // proceed with empty data
-      }
+    const fetchEvents = async () => {
+      const data = await loadEvents();
+      setEvents(data);
     };
-    initData();
+    fetchEvents();
   }, []);
 
-  // Handle click on an event (time slot) in the calendar
   const handleEventClick = (clickInfo) => {
-    const eventId = clickInfo.event.id;
-    const eventObj = events.find(e => e.id == eventId);
-    if (!eventObj) return;
-    // If event is full, show an error toast; otherwise open the signup form
-    if (eventObj.signups.length >= eventObj.capacity) {
-      setToast({ message: 'This time slot is fully booked!', type: 'error' });
+    // Convert eventId to number since FullCalendar passes it as string
+    const eventId = parseInt(clickInfo.event.id, 10);
+    const clickedEvent = events.find(e => e.id === eventId);
+    
+    if (!clickedEvent) {
+      console.error('Event not found:', eventId);
+      return;
+    }
+
+    if (clickedEvent.signups.length >= clickedEvent.capacity) {
+      setToast({ message: 'This slot is full!', type: 'error' });
     } else {
-      setSelectedEvent(eventObj);
+      setSelectedEvent(clickedEvent);
+      setUserName('');
     }
   };
 
-  // Handle submission of the signup form
-  const handleSignupSubmit = (name) => {
-    if (!selectedEvent) return;
-    const updatedEvents = addSignup(events, selectedEvent.id, name);
-    setEvents(updatedEvents);
-    saveEvents(updatedEvents);
-    // Show success message and close form
-    setToast({ message: `Signed up for ${selectedEvent.title} successfully!`, type: 'success' });
+  const handleSignup = () => {
+    // Validate name input
+    if (!userName || userName.trim() === '') {
+      setToast({ message: 'Please enter your name.', type: 'error' });
+      return;
+    }
+
+    // Check for duplicate signup
+    const isDuplicate = selectedEvent.signups.some(
+      signup => (typeof signup === 'string' ? signup : signup.name).toLowerCase() === userName.trim().toLowerCase()
+    );
+    if (isDuplicate) {
+      setToast({ message: 'You have already signed up for this activity.', type: 'error' });
+      return;
+    }
+
+    // Proceed with signup
+    const updated = addSignup(events, selectedEvent.id, userName.trim());
+    setEvents(updated);
+    saveEvents(updated);
+    setToast({ message: 'Signup successful!', type: 'success' });
     setSelectedEvent(null);
   };
 
+  const handleAddActivity = (newActivity) => {
+    const updatedEvents = [...events, newActivity];
+    setEvents(updatedEvents);
+    saveEvents(updatedEvents);
+    setToast({ message: 'New activity added successfully!', type: 'success' });
+  };
+
+  // Handle data reset
+  const handleReset = async () => {
+    if (window.confirm('Are you sure you want to reset all data? This will clear all signups.')) {
+      localStorage.removeItem('events');
+      const data = await loadEvents(); // This will reload from events.json
+      setEvents(data);
+      setToast({ message: 'All data has been reset', type: 'success' });
+    }
+  };
+
   return (
-    <div className="h-full flex flex-col">
-      {/* Export buttons at top-right */}
-      <div className="flex justify-end p-2 bg-gray-100">
-        {events && <ExportButtons events={events} />}
-      </div>
-      {/* Calendar view filling the rest of the screen */}
-      <div className="flex-1">
-        {events && (
+    <div className="min-h-screen bg-gray-100 p-4">
+      <div className="max-w-6xl mx-auto">
+        <header className="mb-6">
+          <h1 className="text-3xl font-bold text-center text-blue-800">Activity Signup Kiosk</h1>
+        </header>
+
+        <div className="flex-1">
           <CalendarView
             events={events}
             initialDate={events.length ? events[0].start : undefined}
             onEventClick={handleEventClick}
           />
+        </div>
+
+        {selectedEvent && (
+          <SignupForm
+            event={selectedEvent}
+            userName={userName}
+            onUserNameChange={setUserName}
+            onClose={() => setSelectedEvent(null)}
+            onSignup={handleSignup}
+          />
         )}
+
+        {toast && (
+          <MessageToast
+            message={toast.message}
+            type={toast.type}
+            onClose={() => setToast(null)}
+          />
+        )}
+
+        <AdminControls 
+          events={events}
+          onExportJSON={() => exportToJSON(events)}
+          onExportCSV={() => exportToCSV(events)}
+          onReset={handleReset}
+          onAddActivity={handleAddActivity}
+        />
       </div>
-      {/* Signup form modal, shown when an event is selected for sign-up */}
-      {selectedEvent && (
-        <SignupForm
-          event={selectedEvent}
-          onSubmit={handleSignupSubmit}
-          onCancel={() => setSelectedEvent(null)}
-        />
-      )}
-      {/* Toast message for notifications */}
-      {toast && (
-        <MessageToast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
     </div>
   );
 }

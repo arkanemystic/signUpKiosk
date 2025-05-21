@@ -8,11 +8,8 @@ const SignupForm = ({ event, userName, onUserNameChange, onClose, onSignup }) =>
   const endDate = new Date(event.end);
   const spotsRemaining = event.capacity - event.signups.length;
 
-  const handleSignup = () => {
-    if (!userName || userName.trim() === '') {
-      alert('Please enter your name before signing up.');
-      return;
-    }
+  const handleSubmit = (e) => {
+    e.preventDefault(); // Prevent form submission
     onSignup();
   };
 
@@ -30,7 +27,7 @@ const SignupForm = ({ event, userName, onUserNameChange, onClose, onSignup }) =>
           </button>
         </div>
 
-        <div className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <span className="font-semibold">Date:</span> {startDate.toLocaleDateString()}
           </div>
@@ -50,25 +47,27 @@ const SignupForm = ({ event, userName, onUserNameChange, onClose, onSignup }) =>
               onChange={(e) => onUserNameChange(e.target.value)}
               className="w-full p-3 border border-gray-300 rounded-lg text-lg"
               placeholder="Enter your name"
+              required
               autoFocus
             />
           </div>
 
           <div className="flex justify-end space-x-3 mt-6">
             <button
+              type="button"
               onClick={onClose}
               className="bg-gray-300 hover:bg-gray-400 py-3 px-5 rounded-lg text-lg"
             >
               Cancel
             </button>
             <button
-              onClick={handleSignup}
+              type="submit"
               className="bg-blue-600 hover:bg-blue-700 text-white py-3 px-5 rounded-lg text-lg"
             >
               Sign Up
             </button>
           </div>
-        </div>
+        </form>
       </div>
     </div>
   );

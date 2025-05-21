@@ -1,40 +1,89 @@
 import _ from 'lodash';
 
-// Load events from localStorage or from /public/events.json
+// Load events from events.json and merge with localStorage data
 export async function loadEvents() {
-  const stored = localStorage.getItem('events');
-  if (stored) {
-    try {
-      return JSON.parse(stored);
-    } catch (e) {
-      console.warn('Corrupted localStorage data');
-      localStorage.removeItem('events');
+  try {
+    // Always fetch the latest events.json
+    const response = await fetch('/events.json');
+    if (!response.ok) throw new Error('Could not fetch events.json');
+    const baseEvents = await response.json();
+    
+    // Get stored signups from localStorage
+    const stored = localStorage.getItem('events');
+    if (stored) {
+      const storedEvents = JSON.parse(stored);
+      // Merge base events with stored signups
+      const mergedEvents = baseEvents.map(baseEvent => {
+        const storedEvent = storedEvents.find(e => e.id === baseEvent.id);
+        if (storedEvent) {
+          // Keep the base event data but use stored signups
+          return {
+            ...baseEvent,
+            signups: storedEvent.signups,
+            title: `${baseEvent.activity} (${storedEvent.signups.length}/${baseEvent.capacity} spots left)`,
+            color: storedEvent.signups.length >= baseEvent.capacity ? '#9E9E9E' : '#4CAF50'
+          };
+        }
+        return baseEvent;
+      });
+      return mergedEvents;
     }
+    return baseEvents;
+  } catch (error) {
+    console.error('Error loading events:', error);
+    // If we can't load from events.json, try to use localStorage as fallback
+    const stored = localStorage.getItem('events');
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch (e) {
+        console.warn('Corrupted localStorage data');
+        localStorage.removeItem('events');
+      }
+    }
+    // If all else fails, return an empty array
+    return [];
   }
-
-  const response = await fetch('/events.json');
-  if (!response.ok) throw new Error('Could not fetch events.json');
-  const data = await response.json();
-  localStorage.setItem('events', JSON.stringify(data));
-  return data;
 }
 
-// Save events to localStorage
-export function saveEvents(events) {
+// Save events both to localStorage and events.json
+export async function saveEvents(events) {
+  // Save to localStorage
   localStorage.setItem('events', JSON.stringify(events));
+  
+  // Save to events.json via server
+  try {
+    const response = await fetch('http://localhost:3000/api/events', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(events),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to save events to server');
+    }
+  } catch (error) {
+    console.error('Error saving to events.json:', error);
+    // Continue even if server save fails - data is still in localStorage
+  }
 }
 
 // Add a signup (name) to an event if space is available
 export function addSignup(events, eventId, name) {
   const updatedEvents = events.map(event => {
-    if (event.id === eventId && event.signups.length < event.capacity) {
+    // Convert both IDs to numbers to ensure consistent comparison
+    if (Number(event.id) === Number(eventId) && event.signups.length < event.capacity) {
       const newSignups = [...event.signups, { name }];
       const isFull = newSignups.length >= event.capacity;
+      const spotsLeft = event.capacity - newSignups.length;
 
       return {
         ...event,
         signups: newSignups,
-        classNames: isFull ? ['full-event'] : [],
+        title: `${event.activity} (${spotsLeft}/${event.capacity} spots left)`,
+        color: isFull ? '#9E9E9E' : '#4CAF50', // Gray if full, Green if available
       };
     }
     return event;
