@@ -83,7 +83,10 @@ function App() {
     <div className="min-h-screen bg-gray-100 p-4">
       <div className="max-w-6xl mx-auto">
         <header className="mb-6">
-          <h1 className="text-3xl font-bold text-center text-blue-800">Activity Signup Kiosk</h1>
+          <div className="flex flex-col items-center justify-center space-y-4">
+            <img src="/SSSGC-Logo.png" alt="SSSGC Logo" className="h-20 w-auto" />
+            <h1 className="text-3xl font-bold text-center text-blue-800">Seva Signup Kiosk</h1>
+          </div>
         </header>
 
         <div className="flex-1">
