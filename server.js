@@ -17,20 +17,23 @@ app.use(express.static('dist'));
 app.post('/api/events', async (req, res) => {
   try {
     const events = req.body;
-    // Remove signup data before saving to events.json
-    const baseEvents = events.map(event => ({
-      ...event,
-      signups: [], // Reset signups when saving to events.json
-      title: `${event.activity} (${event.capacity}/${event.capacity} spots left)`,
-      color: '#4CAF50'
-    }));
+    // Keep all event data including signups
+    const updatedEvents = events.map(event => {
+      const filledSpots = event.signups.length;
+      return {
+        ...event,
+        title: `${event.activity} (${filledSpots}/${event.capacity} spots filled)`,
+        color: filledSpots === event.capacity ? '#9E9E9E' : (event.originalColor || event.color)
+      };
+    });
     
     await writeFile(
       join(__dirname, 'public', 'events.json'),
-      JSON.stringify(baseEvents, null, 2)
+      JSON.stringify(updatedEvents, null, 2)
     );
     
-    res.json({ success: true });
+    // Send back the updated events
+    res.json(updatedEvents);
   } catch (error) {
     console.error('Error saving events:', error);
     res.status(500).json({ error: 'Failed to save events' });

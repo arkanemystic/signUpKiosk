@@ -3,14 +3,17 @@ import CalendarView from './components/CalendarView';
 import SignupForm from './components/SignupForm';
 import MessageToast from './components/MessageToast';
 import AdminControls from './components/AdminControls';
+import TagFilter from './components/TagFilter';
 import { loadEvents, saveEvents, addSignup } from './utils/dataUtils';
 import { exportToJSON, exportToCSV } from './utils/exportUtils';
+import { getTagColor } from './utils/tagsConfig';
 
 function App() {
   const [events, setEvents] = useState([]);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [userName, setUserName] = useState('');
   const [toast, setToast] = useState(null);
+  const [selectedTags, setSelectedTags] = useState([]);
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -38,7 +41,7 @@ function App() {
     }
   };
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     // Validate name input
     if (!userName || userName.trim() === '') {
       setToast({ message: 'Please enter your name.', type: 'error' });
@@ -55,29 +58,53 @@ function App() {
     }
 
     // Proceed with signup
-    const updated = addSignup(events, selectedEvent.id, userName.trim());
-    setEvents(updated);
-    saveEvents(updated);
-    setToast({ message: 'Signup successful!', type: 'success' });
-    setSelectedEvent(null);
+    try {
+      const updated = addSignup(events, selectedEvent.id, userName.trim());
+      const savedEvents = await saveEvents(updated);
+      setEvents(savedEvents);
+      setToast({ message: `Thank you! You've successfully signed up for ${selectedEvent.activity}.`, type: 'success' });
+      setSelectedEvent(null);
+    } catch (error) {
+      setToast({ message: 'Failed to sign up. Please try again.', type: 'error' });
+    }
   };
 
-  const handleAddActivity = (newActivity) => {
-    const updatedEvents = [...events, newActivity];
-    setEvents(updatedEvents);
-    saveEvents(updatedEvents);
-    setToast({ message: 'New activity added successfully!', type: 'success' });
+  const handleAddActivity = async (newActivity) => {
+    try {
+      const updatedEvents = [...events, newActivity];
+      const savedEvents = await saveEvents(updatedEvents);
+      setEvents(savedEvents);
+      setToast({ message: 'New activity added successfully!', type: 'success' });
+    } catch (error) {
+      setToast({ message: 'Failed to add activity. Please try again.', type: 'error' });
+    }
   };
 
   // Handle data reset
   const handleReset = async () => {
     if (window.confirm('Are you sure you want to reset all data? This will clear all signups.')) {
-      localStorage.removeItem('events');
-      const data = await loadEvents(); // This will reload from events.json
-      setEvents(data);
-      setToast({ message: 'All data has been reset', type: 'success' });
+      try {
+        // Save events with cleared signups
+        // Reset all events to their initial state
+        const resetEvents = events.map(event => ({
+          ...event,
+          signups: [],
+          title: `${event.activity} (0/${event.capacity} spots filled)`,
+          color: event.originalColor || getTagColor(event.tag)
+        }));
+        const savedEvents = await saveEvents(resetEvents);
+        setEvents(savedEvents);
+        setToast({ message: 'All data has been reset', type: 'success' });
+      } catch (error) {
+        setToast({ message: 'Failed to reset data. Please try again.', type: 'error' });
+      }
     }
   };
+
+  // Filter events based on selected tags
+  const filteredEvents = events.filter(event => 
+    selectedTags.length === 0 || selectedTags.includes(event.tag)
+  );
 
   return (
     <div className="min-h-screen bg-gray-100 p-4">
@@ -89,9 +116,16 @@ function App() {
           </div>
         </header>
 
+        <div className="mb-4">
+          <TagFilter 
+            selectedTags={selectedTags} 
+            onTagChange={setSelectedTags}
+          />
+        </div>
+
         <div className="flex-1">
           <CalendarView
-            events={events}
+            events={filteredEvents}
             initialDate={events.length ? events[0].start : undefined}
             onEventClick={handleEventClick}
           />

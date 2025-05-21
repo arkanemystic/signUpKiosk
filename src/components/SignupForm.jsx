@@ -6,7 +6,7 @@ const SignupForm = ({ event, userName, onUserNameChange, onClose, onSignup }) =>
 
   const startDate = new Date(event.start);
   const endDate = new Date(event.end);
-  const spotsRemaining = event.capacity - event.signups.length;
+  const filledSpots = event.signups.length;
 
   const handleSubmit = (e) => {
     e.preventDefault(); // Prevent form submission
@@ -35,7 +35,7 @@ const SignupForm = ({ event, userName, onUserNameChange, onClose, onSignup }) =>
             <span className="font-semibold">Time:</span> {startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </div>
           <div>
-            <span className="font-semibold">Available Spots:</span> {spotsRemaining} of {event.capacity}
+            <span className="font-semibold">Spots filled:</span> {filledSpots} of {event.capacity}
           </div>
 
           <div className="mt-6">

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
+import { ACTIVITY_TAGS, getTagColor } from '../utils/tagsConfig';
 
 const ActivityForm = ({ onClose, onSubmit }) => {
   const [activity, setActivity] = useState({
@@ -8,6 +9,7 @@ const ActivityForm = ({ onClose, onSubmit }) => {
     date: '',
     startTime: '',
     endTime: '',
+    tag: Object.keys(ACTIVITY_TAGS)[0] // Default to first tag
   });
 
   const handleSubmit = (e) => {
@@ -16,14 +18,16 @@ const ActivityForm = ({ onClose, onSubmit }) => {
     const endDateTime = new Date(`${activity.date}T${activity.endTime}`);
 
     const newActivity = {
-      id: Date.now(), // Use timestamp as unique ID
-      title: `${activity.activity} (${activity.capacity}/${activity.capacity} spots left)`,
+      id: Date.now(),
+      title: `${activity.activity} (0/${activity.capacity} spots filled)`,
       activity: activity.activity,
       start: startDateTime.toISOString(),
       end: endDateTime.toISOString(),
       capacity: parseInt(activity.capacity),
       signups: [],
-      color: '#4CAF50'
+      tag: activity.tag,
+      color: getTagColor(activity.tag),
+      originalColor: getTagColor(activity.tag)
     };
 
     onSubmit(newActivity);
@@ -53,8 +57,24 @@ const ActivityForm = ({ onClose, onSubmit }) => {
               value={activity.activity}
               onChange={(e) => setActivity({...activity, activity: e.target.value})}
               className="w-full p-3 border border-gray-300 rounded-lg"
-              placeholder="e.g., Yoga, Dance, etc."
+              placeholder="e.g., Seva, Bhajan, etc."
             />
+          </div>
+
+          <div>
+            <label className="block text-gray-700 mb-2">Activity Type</label>
+            <select
+              required
+              value={activity.tag}
+              onChange={(e) => setActivity({...activity, tag: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            >
+              {Object.entries(ACTIVITY_TAGS).map(([key, tag]) => (
+                <option key={key} value={key}>
+                  {tag.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>

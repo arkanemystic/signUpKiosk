@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "start": "node server.js",
     "dev:all": "concurrently \"npm run dev\" \"npm run server\"",
-    "server": "node server.js"
+    "server": "node server.js",
+    "package": "npm run build && pkg .",
+    "make-executable": "npm run build && pkg . --out-path dist-exe"
   },
   "dependencies": {
     "@fullcalendar/core": "^6.1.10",
@@ -33,5 +35,15 @@
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5",
     "vite": "^4.4.5"
-  }
+  },
+  "pkg": {
+    "scripts": "dist/**/*.js",
+    "assets": [
+      "dist/**/*",
+      "public/**/*"
+    ],
+    "targets": ["node18-macos-x64", "node18-win-x64", "node18-linux-x64"],
+    "outputPath": "dist-exe"
+  },
+  "bin": "server.js"
 }
